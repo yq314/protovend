@@ -44,7 +44,7 @@ build:
 
 release:
   <<: *cargo_cache
-  stage: build
+  stage: release
   script:
     - cargo build --release
   artifacts:
