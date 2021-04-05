@@ -1,0 +1,53 @@
+variables:
+  CARGO_HOME: $CI_PROJECT_DIR/.cargo
+
+image: "rust:1.37.0"
+
+.cargo_cache: &cargo_cache
+  cache:
+    paths:
+      - .cargo
+
+stages:
+  - validate
+  - build
+  - release
+
+test:
+  <<: &cargo_cache
+  stage: validate
+  script:
+    - cargo test  --verbose
+
+format:
+  <<: &cargo_cache
+  stage: validate
+  before_script:
+    - rustup component add rustfmt
+  script:
+    - cargo fmt --all --verbose -- --check
+
+lint:
+  <<: &cargo_cache
+  stage: validate
+  before_script:
+    - rustup component add clippy
+  script:
+    - cargo clippy --verbose -- -D warnings
+
+build:
+  <<: &cargo_cache
+  stage: build
+  image: rust:latest
+  script:
+    - cargo build --verbose
+
+release:
+  <<: &cargo_cache
+  stage: build
+  artifacts:
+     paths:
+       - target/release/protovend
+  only:
+    refs:
+      - master
