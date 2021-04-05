@@ -41,7 +41,7 @@ In these examples, we'll be vendoring protos from `somegroup/producer-service` (
    Check the following protovend generated files and vendored proto directory (containing .proto files) into source control
      - .protovend.yml
      - .protovend.lock
-     - vendor/proto
+     - protovend/proto
    ```
 
 4. `protovend update <repo>`: Updating a single dependency
@@ -54,7 +54,7 @@ In these examples, we'll be vendoring protos from `somegroup/producer-service` (
    Check the following protovend generated files and vendored proto directory (containing .proto files) into source control
      - .protovend.yml
      - .protovend.lock
-     - vendor/proto
+     - protovend/proto
    ```
 
 5. `protovend update`: Updating all tracked dependencies to latest
@@ -67,7 +67,7 @@ In these examples, we'll be vendoring protos from `somegroup/producer-service` (
    Check the following protovend generated files and vendored proto directory (containing .proto files) into source control
      - .protovend.yml
      - .protovend.lock
-     - vendor/proto
+     - protovend/proto
    ```
 
 ## Transitive dependencies
@@ -120,7 +120,7 @@ updated: 2020-01-01 16:01:24.331398
 
 The only time a commit id is changed is during an update.
 
-### `./vendor/proto`
+### `./protovend/proto`
 
 A directory that contains every protobuf file vendored.
 
