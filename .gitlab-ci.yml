@@ -45,6 +45,8 @@ build:
 release:
   <<: &cargo_cache
   stage: build
+  script:
+    - cargo build --release
   artifacts:
      paths:
        - target/release/protovend
