@@ -14,13 +14,13 @@ stages:
   - release
 
 test:
-  <<: &cargo_cache
+  <<: *cargo_cache
   stage: validate
   script:
     - cargo test  --verbose
 
 format:
-  <<: &cargo_cache
+  <<: *cargo_cache
   stage: validate
   before_script:
     - rustup component add rustfmt
@@ -28,7 +28,7 @@ format:
     - cargo fmt --all --verbose -- --check
 
 lint:
-  <<: &cargo_cache
+  <<: *cargo_cache
   stage: validate
   before_script:
     - rustup component add clippy
@@ -36,14 +36,14 @@ lint:
     - cargo clippy --verbose -- -D warnings
 
 build:
-  <<: &cargo_cache
+  <<: *cargo_cache
   stage: build
   image: rust:latest
   script:
     - cargo build --verbose
 
 release:
-  <<: &cargo_cache
+  <<: *cargo_cache
   stage: build
   script:
     - cargo build --release
