@@ -67,11 +67,11 @@ fn test_install_existing() {
 
     assert!(dir
         .path()
-        .join("./protovend/proto/skyscanner/protovendtestprotos/heartbeat-v1.proto")
+        .join("./third_party/protovend/skyscanner/protovendtestprotos/heartbeat-v1.proto")
         .exists());
     assert!(!dir
         .path()
-        .join("./protovend/proto/skyscanner/protovendtestprotos/heartbeat-v2.proto")
+        .join("./third_party/protovend/skyscanner/protovendtestprotos/heartbeat-v2.proto")
         .exists());
 }
 
@@ -103,10 +103,10 @@ fn test_install_existing_legacy() {
     assert!(contents.contains("min_protovend_version"));
 
     assert!(dir
-        .join("./protovend/proto/skyscanner/protovendtestprotos/heartbeat-v1.proto")
+        .join("./third_party/protovend/skyscanner/protovendtestprotos/heartbeat-v1.proto")
         .exists());
     assert!(!dir
-        .join("./protovend/proto/skyscanner/protovendtestprotos/heartbeat-v2.proto")
+        .join("./third_party/protovend/skyscanner/protovendtestprotos/heartbeat-v2.proto")
         .exists());
 
     let expected_contents = String::from(
@@ -155,11 +155,11 @@ fn test_install_branch() {
 
     assert!(dir
         .path()
-        .join("./protovend/proto/skyscanner/protovendtestprotos/heartbeat-v1.proto")
+        .join("./third_party/protovend/skyscanner/protovendtestprotos/heartbeat-v1.proto")
         .exists());
     assert!(dir
         .path()
-        .join("./protovend/proto/skyscanner/protovendtestprotos/heartbeat-v2.proto")
+        .join("./third_party/protovend/skyscanner/protovendtestprotos/heartbeat-v2.proto")
         .exists());
 }
 
@@ -194,12 +194,12 @@ fn test_install_structured() {
 
     assert!(dir
         .path()
-        .join("./protovend/proto/skyscanner/protovendtestprotos/heartbeat-v1.proto")
+        .join("./third_party/protovend/skyscanner/protovendtestprotos/heartbeat-v1.proto")
         .exists());
     assert!(dir
         .path()
         .join(
-            "./protovend/proto/skyscanner/protovendtestprotos/inner1/inner2/inner-heartbeat-v3.proto"
+            "./third_party/protovend/skyscanner/protovendtestprotos/inner1/inner2/inner-heartbeat-v3.proto"
         )
         .exists());
 }
@@ -234,11 +234,11 @@ fn test_install_not_existing() {
 
     assert!(!dir
         .path()
-        .join("./protovend/proto/skyscanner/protovendtestprotos/heartbeat-v1.proto")
+        .join("./third_party/protovend/skyscanner/protovendtestprotos/heartbeat-v1.proto")
         .exists());
     assert!(!dir
         .path()
-        .join("./protovend/proto/skyscanner/protovendtestprotos/heartbeat-v2.proto")
+        .join("./third_party/protovend/skyscanner/protovendtestprotos/heartbeat-v2.proto")
         .exists());
 }
 
@@ -274,11 +274,11 @@ fn test_install_switch_branch() {
 
     assert!(dir
         .path()
-        .join("./protovend/proto/skyscanner/protovendtestprotos/heartbeat-v1.proto")
+        .join("./third_party/protovend/skyscanner/protovendtestprotos/heartbeat-v1.proto")
         .exists());
     assert!(dir
         .path()
-        .join("./protovend/proto/skyscanner/protovendtestprotos/heartbeat-v2.proto")
+        .join("./third_party/protovend/skyscanner/protovendtestprotos/heartbeat-v2.proto")
         .exists());
 
     fs::remove_file(dir.path().join(".protovend.lock")).unwrap();
@@ -300,10 +300,10 @@ fn test_install_switch_branch() {
 
     assert!(dir
         .path()
-        .join("./protovend/proto/skyscanner/protovendtestprotos/heartbeat-v1.proto")
+        .join("./third_party/protovend/skyscanner/protovendtestprotos/heartbeat-v1.proto")
         .exists());
     assert!(!dir
         .path()
-        .join("./protovend/proto/skyscanner/protovendtestprotos/heartbeat-v2.proto")
+        .join("./third_party/protovend/skyscanner/protovendtestprotos/heartbeat-v2.proto")
         .exists());
 }

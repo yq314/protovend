@@ -64,21 +64,21 @@ fn test_install_override_commit_hash() {
 
     assert!(dir
         .path()
-        .join("./protovend/proto/skyscanner/protovendtestprotos/heartbeat-v1.proto")
+        .join("./third_party/protovend/skyscanner/protovendtestprotos/heartbeat-v1.proto")
         .exists());
     assert!(dir
         .path()
-        .join("./protovend/proto/skyscanner/protovendtestprotos/heartbeat-v2.proto")
+        .join("./third_party/protovend/skyscanner/protovendtestprotos/heartbeat-v2.proto")
         .exists());
 
     fs::remove_file(
         dir.path()
-            .join("./protovend/proto/skyscanner/protovendtestprotos/heartbeat-v1.proto"),
+            .join("./third_party/protovend/skyscanner/protovendtestprotos/heartbeat-v1.proto"),
     )
     .unwrap();
     fs::remove_file(
         dir.path()
-            .join("./protovend/proto/skyscanner/protovendtestprotos/heartbeat-v2.proto"),
+            .join("./third_party/protovend/skyscanner/protovendtestprotos/heartbeat-v2.proto"),
     )
     .unwrap();
 
@@ -117,10 +117,10 @@ updated: 2017-08-14 17:15:13.549503",
 
     assert!(dir
         .path()
-        .join("./protovend/proto/skyscanner/protovendtestprotos/heartbeat-v1.proto")
+        .join("./third_party/protovend/skyscanner/protovendtestprotos/heartbeat-v1.proto")
         .exists());
     assert!(dir
         .path()
-        .join("./protovend/proto/skyscanner/protovendtestprotos/heartbeat-v2.proto")
+        .join("./third_party/protovend/skyscanner/protovendtestprotos/heartbeat-v2.proto")
         .exists());
 }
