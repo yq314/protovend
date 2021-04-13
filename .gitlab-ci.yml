@@ -57,7 +57,7 @@ package:
     - cd target/x86_64-apple-darwin/release
     - tar -czf protovend.tar.gz protovend
     - shasum -a 256 protovend.tar.gz > sha256.txt
-    - curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file protovend.tar.gz "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/protovend/${CI_COMMIT_TAG}/protovend.tar.gz"
-    - curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file sha256.txt "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/protovend/${CI_COMMIT_TAG}/sha256.txt"
+    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file protovend.tar.gz "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/protovend/${CI_COMMIT_TAG}/protovend.tar.gz"'
+    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file sha256.txt "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/protovend/${CI_COMMIT_TAG}/sha256.txt"'
   only:
     - tags
