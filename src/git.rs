@@ -19,7 +19,6 @@ use crate::{util, Result};
 use git2::{build::CheckoutBuilder, Oid, Repository, ResetType};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 
 mod commands;
 
@@ -110,10 +109,4 @@ fn reset_local_repo_to_commit<P: AsRef<Path>>(
     }
 
     Ok(repo)
-}
-
-pub fn get_repo_from_dir(location: &Path) -> Result<GitUrl> {
-    let url = commands::get_remote_url(location)?;
-    let url = GitUrl::from_str(&url)?;
-    Ok(url)
 }

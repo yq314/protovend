@@ -59,20 +59,3 @@ pub fn clone<P: AsRef<Path>>(cwd: P, url: &str, branch: &str) -> Result<()> {
         ))
     }
 }
-
-pub fn get_remote_url<P: AsRef<Path>>(cwd: P) -> Result<String> {
-    let output = Command::new("git")
-        .current_dir(cwd)
-        .arg("ls-remote")
-        .arg("--get-url")
-        .output()?;
-
-    if output.status.success() {
-        Ok(String::from_utf8(output.stdout)?)
-    } else {
-        Err(format_err!(
-            "Git ls-remote failed with code {:?}",
-            output.status.code()
-        ))
-    }
-}

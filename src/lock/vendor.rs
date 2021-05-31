@@ -16,7 +16,7 @@
 
 use super::Import;
 use crate::Result;
-use crate::{check, git, PROTOS_DIRECTORY};
+use crate::{check, git};
 use failure::format_err;
 use lazy_static::lazy_static;
 use std::env;
@@ -37,19 +37,24 @@ pub(super) fn vendor_import(import: &Import) -> Result<()> {
     let repo = git::get_repo(&import.url, &import.branch, &import.commit)?;
     let clone_location = repo.workdir().unwrap(); //Can unwrap safely as repository is not bare
 
-    let sanitised_path = import.url.sanitised_path();
+    for path in &import.proto_paths {
+        let full_path = Path::new(&import.proto_dir).join(Path::new(path));
+        let src_folder = create_src_folder_path(&clone_location, &full_path);
+        let dest_folder = create_dest_folder_path(path)?;
 
-    let src_folder = create_src_folder_path(&clone_location, &sanitised_path);
-    let dest_folder = create_dest_folder_path(&sanitised_path)?;
-
-    log::info!(
-        "calling check with {} and {}",
-        clone_location.display(),
-        import.url
-    );
-    check::run_checks(clone_location, &import.url)?;
-
-    find_and_copy_protos(&src_folder, &dest_folder)
+        log::info!(
+            "calling check with {} and {}",
+            clone_location.display(),
+            import.url
+        );
+        check::run_checks(clone_location, &import.proto_dir, path)?;
+        let result = find_and_copy_protos(&src_folder, &dest_folder);
+        match result {
+            Ok(res) => res,
+            Err(err) => log::error!("{}", err),
+        };
+    }
+    Ok(())
 }
 
 pub(super) fn prepare_output_directory() -> Result<()> {
@@ -65,14 +70,11 @@ pub(super) fn prepare_output_directory() -> Result<()> {
 fn create_dest_folder_path(repo: &str) -> Result<PathBuf> {
     Ok(env::current_dir()?
         .join(PROTOS_OUTPUT_DIRECTORY.as_path())
-        .join(repo))
+        .join(Path::new(repo)))
 }
 
-fn create_src_folder_path<P: AsRef<Path>>(src_working_dir: P, url_path: &str) -> PathBuf {
-    src_working_dir
-        .as_ref()
-        .join(PROTOS_DIRECTORY.as_path())
-        .join(url_path)
+fn create_src_folder_path<P: AsRef<Path>>(src_working_dir: P, proto_path: &PathBuf) -> PathBuf {
+    src_working_dir.as_ref().join(proto_path.as_path())
 }
 
 fn find_and_copy_protos(src_folder: &Path, dest_folder: &Path) -> Result<()> {

@@ -19,7 +19,7 @@ use lazy_static::lazy_static;
 use semver::Version;
 use std::env;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 mod check;
 mod config;
@@ -32,7 +32,6 @@ mod util;
 lazy_static! {
     static ref CRATE_VERSION: Version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
     static ref REPOS_CACHE_DIRECTORY: PathBuf = env::temp_dir().join(".protovend/repos");
-    static ref PROTOS_DIRECTORY: PathBuf = PathBuf::from("proto");
 }
 
 pub type Result<A> = std::result::Result<A, Error>;
@@ -42,10 +41,24 @@ pub fn init() -> Result<()> {
     lock::init()
 }
 
-pub fn add(url: git_url::GitUrl, branch: String) -> Result<()> {
+pub fn add(
+    url: git_url::GitUrl,
+    branch: String,
+    proto_dir: String,
+    proto_path: String,
+) -> Result<()> {
     let mut config = config::get_config()?;
 
-    config.add_dependency(url, branch)
+    let fixed_path = if proto_path.is_empty() {
+        Path::new(&url.sanitised_path())
+            .to_str()
+            .unwrap()
+            .to_string()
+    } else {
+        proto_path
+    };
+
+    config.add_dependency(url, branch, proto_dir, fixed_path)
 }
 
 pub fn install() -> Result<()> {
@@ -73,11 +86,6 @@ pub fn update(url: Option<git_url::GitUrl>) -> Result<()> {
 pub fn cleanup() -> Result<()> {
     fs::remove_dir_all(REPOS_CACHE_DIRECTORY.as_path())?;
     Ok(())
-}
-
-pub fn lint() -> Result<()> {
-    let cwd = env::current_dir()?;
-    check::run_checks(&cwd, &git::get_repo_from_dir(cwd.as_path())?)
 }
 
 fn log_blurb() {

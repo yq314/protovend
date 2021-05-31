@@ -91,8 +91,7 @@ fn test_install_override_commit_hash() {
         b"imports:
 - branch: branch-2
   commit: thisIsAnOldHash
-  repo: skyscanner/protovend-test-protos
-  host: github.skyscannertools.net
+  url: https://github.com/Skyscanner/protovend-test-protos.git
 min_protovend_version: 0.0.0
 updated: 2017-08-14 17:15:13.549503",
     )
@@ -114,6 +113,9 @@ updated: 2017-08-14 17:15:13.549503",
     assert!(contents.contains("branch: branch-2"));
     assert!(!contents.contains("thisIsAnOldHash"));
     assert!(contents.contains("min_protovend_version"));
+    assert!(contents.contains("proto_dir: proto"));
+    assert!(contents.contains("proto_paths"));
+    assert!(contents.contains("skyscanner/protovendtestprotos"));
 
     assert!(dir
         .path()
