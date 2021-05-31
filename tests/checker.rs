@@ -14,12 +14,10 @@
  * limitations under the License.
 */
 
-use common::command;
 use git2::Repository;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
-use tempfile;
 
 mod common;
 
@@ -39,26 +37,4 @@ fn init_git_working_dir(path: &Path) {
     let repo = Repository::init(path).unwrap();
     repo.remote("origin", "git@github.com:Skyscanner/protovend.git")
         .unwrap();
-}
-
-#[test]
-fn test_cli_exits_with_failure_when_checker_fails() {
-    let dir = tempfile::tempdir().unwrap();
-    create_with_protos_in_root(dir.path());
-    init_git_working_dir(dir.path());
-
-    let status = command(&dir).arg("lint").status().unwrap();
-
-    assert!(!status.success());
-}
-
-#[test]
-fn test_cli_exits_with_pass_when_checker_passes() {
-    let dir = tempfile::tempdir().unwrap();
-    create_with_protos_in_correct_location(dir.path());
-    init_git_working_dir(dir.path());
-
-    let status = command(&dir).arg("lint").status().unwrap();
-
-    assert!(status.success());
 }

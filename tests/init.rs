@@ -35,7 +35,7 @@ fn test_init_fresh() {
     assert!(dir.path().join(".protovend.yml").exists());
 
     tests_utils::fs::assert_file_contents_eq(
-        String::from("---\nmin_protovend_version: 4.0.0\nvendor: []"),
+        String::from("---\nmin_protovend_version: 4.1.0\nvendor: []"),
         dir.path().join(".protovend.yml").as_path(),
     );
 }

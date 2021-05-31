@@ -17,7 +17,7 @@
 use crate::config::Dependency;
 use crate::config::ProtovendConfig;
 use crate::git;
-use crate::git_url::{GitUrl, Host, Repo};
+use crate::git_url::GitUrl;
 use crate::util;
 use crate::{date_compat, Result};
 use chrono::{Local, NaiveDateTime};
@@ -28,7 +28,6 @@ use serde::{Deserialize, Serialize};
 use serde_yaml;
 use std::fs::File;
 use std::path::PathBuf;
-use std::str::FromStr;
 
 pub mod vendor;
 
@@ -45,24 +44,25 @@ struct Import {
     branch: String,
     commit: String,
     url: GitUrl,
+    proto_dir: String,
+    proto_paths: Vec<String>,
 }
 
 #[derive(Deserialize)]
-struct GithubImport {
+struct LegacyImport {
     branch: String,
     commit: String,
-    host: Host,
-    repo: Repo,
+    url: GitUrl,
 }
 
-impl From<GithubImport> for Import {
-    fn from(import: GithubImport) -> Self {
-        let url = format!("git@{}:{}.git", import.host, import.repo); //FIXME DRY this up with deps
-        let url = GitUrl::from_str(url.as_str()).unwrap();
+impl From<LegacyImport> for Import {
+    fn from(import: LegacyImport) -> Self {
         Import {
-            url,
+            url: import.url.clone(),
             branch: import.branch,
             commit: import.commit,
+            proto_dir: String::from("proto"),
+            proto_paths: vec![import.url.sanitised_path()],
         }
     }
 }
@@ -83,7 +83,7 @@ pub struct ProtovendLock {
 
 #[derive(Deserialize)]
 pub struct LegacyProtovendLock {
-    imports: Vec<GithubImport>,
+    imports: Vec<LegacyImport>,
     min_protovend_version: Version,
     #[serde(with = "date_compat")]
     updated: NaiveDateTime,
@@ -189,6 +189,8 @@ fn to_import(dep: Dependency) -> Result<Import> {
         commit: git::get_latest_commit_sha(&dep.url, &dep.branch)?.to_string(),
         branch: dep.branch,
         url: dep.url,
+        proto_dir: dep.proto_dir,
+        proto_paths: dep.proto_paths,
     })
 }
 
@@ -232,37 +234,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_correctly_parses_legacy_lock() {
-        let lock_contents = "--- \
-                             \nimports: \
-                             \n  - branch: master \
-                             \n    commit: a9fef901ae63f689a4180bf8255d16a45baf04a1 \
-                             \n    host: github.skyscannertools.net \
-                             \n    repo: cell-placement/cell-metadata-service \
-                             \nmin_protovend_version: 0.1.8 \
-                             \nupdated: \"2019-11-20 15:02:12.330896\"";
-
-        let lock_path = tests_utils::fs::write_contents_to_temp_file(lock_contents, "legacy_lock");
-
-        let expected_lock = ProtovendLock {
-            imports: vec![Import {
-                branch: String::from("master"),
-                commit: String::from("a9fef901ae63f689a4180bf8255d16a45baf04a1"),
-                url: GitUrl::from_str(
-                    "git@github.skyscannertools.net:cell-placement/cell-metadata-service.git",
-                )
-                .unwrap(),
-            }],
-            min_protovend_version: Version::from_str("0.1.8").unwrap(),
-            updated: NaiveDateTime::from_str("2019-11-20T15:02:12.330896").unwrap(),
-        };
-
-        let actual_lock = load_lockfile(&lock_path).unwrap();
-
-        assert_eq!(expected_lock, actual_lock);
-    }
-
-    #[test]
     fn test_correctly_parses_lock() {
         let lock_contents =
             "--- \
@@ -270,6 +241,9 @@ mod tests {
              \n  - branch: master \
              \n    commit: a9fef901ae63f689a4180bf8255d16a45baf04a1 \
              \n    url: git@github.skyscannertools.net:cell-placement/cell-metadata-service.git \
+             \n    proto_dir: proto \
+             \n    proto_paths: \
+             \n      - path/to \
              \nmin_protovend_version: 0.1.8 \
              \nupdated: \"2019-11-20 15:02:12.330896\"";
 
@@ -279,13 +253,16 @@ mod tests {
             imports: vec![Import {
                 branch: String::from("master"),
                 commit: String::from("a9fef901ae63f689a4180bf8255d16a45baf04a1"),
-                url: GitUrl::from_str(
-                    "git@github.skyscannertools.net:cell-placement/cell-metadata-service.git",
-                )
-                .unwrap(),
+                url: "git@github.skyscannertools.net:cell-placement/cell-metadata-service.git"
+                    .parse::<GitUrl>()
+                    .unwrap(),
+                proto_dir: String::from("proto"),
+                proto_paths: vec![String::from("path/to")],
             }],
-            min_protovend_version: Version::from_str("0.1.8").unwrap(),
-            updated: NaiveDateTime::from_str("2019-11-20T15:02:12.330896").unwrap(),
+            min_protovend_version: "0.1.8".parse::<Version>().unwrap(),
+            updated: "2019-11-20T15:02:12.330896"
+                .parse::<NaiveDateTime>()
+                .unwrap(),
         };
 
         let actual_lock = load_lockfile(&lock_path).unwrap();

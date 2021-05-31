@@ -58,53 +58,18 @@ fn test_add_with_init() {
 
     let expected_contents = String::from(
         "---\
-         \nmin_protovend_version: 4.0.0\
+         \nmin_protovend_version: 4.1.0\
          \nvendor:\
          \n  - url: \"https://github.com/Skyscanner/protovend-test-protos.git\"\
-         \n    branch: master",
+         \n    branch: master\
+         \n    proto_dir: proto\
+         \n    proto_paths:\
+         \n      - skyscanner/protovendtestprotos",
     );
 
     tests_utils::fs::assert_file_contents_eq(
         expected_contents,
         dir.path().join(".protovend.yml").as_path(),
-    );
-}
-
-#[test]
-fn test_add_to_existing_legacy() {
-    let legacy_contents = "---\
-                           \nmin_protovend_version: 4.0.0\
-                           \nvendor:\
-                           \n  - repo: cell-placement/cell-metadata-service\
-                           \n    branch: master\
-                           \n    host: github.com";
-
-    let legacy_protovend_config_path =
-        tests_utils::fs::write_contents_to_temp_file(legacy_contents, ".protovend.yml");
-
-    let dir = legacy_protovend_config_path.parent().unwrap();
-
-    let status = command(&dir)
-        .arg("add")
-        .arg("https://github.com/Skyscanner/protovend-test-protos.git")
-        .status()
-        .unwrap();
-
-    assert!(status.success());
-
-    let expected_contents = String::from(
-        "---\
-         \nmin_protovend_version: 4.0.0\
-         \nvendor:\
-         \n  - url: \"git@github.com:cell-placement/cell-metadata-service.git\"\
-         \n    branch: master\
-         \n  - url: \"https://github.com/Skyscanner/protovend-test-protos.git\"\
-         \n    branch: master",
-    );
-
-    tests_utils::fs::assert_file_contents_eq(
-        expected_contents,
-        legacy_protovend_config_path.as_path(),
     );
 }
 
@@ -128,6 +93,8 @@ fn test_add_two() {
     let status = command(&dir)
         .arg("add")
         .arg("git@github.com:Skyscanner/protovend-test-protos-fake.git")
+        .arg("-d=src/proto")
+        .arg("-p=path/to")
         .status()
         .unwrap();
 
@@ -135,12 +102,18 @@ fn test_add_two() {
 
     let expected_contents = String::from(
         "---\
-         \nmin_protovend_version: 4.0.0\
+         \nmin_protovend_version: 4.1.0\
          \nvendor:\
          \n  - url: \"git@github.com:Skyscanner/protovend-test-protos-fake.git\"\
          \n    branch: master\
+         \n    proto_dir: src/proto\
+         \n    proto_paths:\
+         \n      - path/to\
          \n  - url: \"https://github.com/Skyscanner/protovend-test-protos.git\"\
-         \n    branch: master",
+         \n    branch: master\
+         \n    proto_dir: proto\
+         \n    proto_paths:\
+         \n      - skyscanner/protovendtestprotos",
     );
 
     tests_utils::fs::assert_file_contents_eq(
@@ -150,7 +123,7 @@ fn test_add_two() {
 }
 
 #[test]
-fn test_add_with_different_hosts() {
+fn test_add_with_different_proto_paths() {
     let dir = tempfile::tempdir().unwrap();
     let status = command(&dir).arg("init").status().unwrap();
 
@@ -161,6 +134,16 @@ fn test_add_with_different_hosts() {
     let status = command(&dir)
         .arg("add")
         .arg("git@github.com:Skyscanner/protovend-test-protos2.git")
+        .arg("-p=path1/to")
+        .status()
+        .unwrap();
+
+    assert!(status.success());
+
+    let status = command(&dir)
+        .arg("add")
+        .arg("git@github.com:Skyscanner/protovend-test-protos2.git")
+        .arg("-p=path2/to")
         .status()
         .unwrap();
 
@@ -168,10 +151,14 @@ fn test_add_with_different_hosts() {
 
     let expected_contents = String::from(
         "---\
-         \nmin_protovend_version: 4.0.0\
+         \nmin_protovend_version: 4.1.0\
          \nvendor:\
          \n  - url: \"git@github.com:Skyscanner/protovend-test-protos2.git\"\
-         \n    branch: master",
+         \n    branch: master\
+         \n    proto_dir: proto\
+         \n    proto_paths:\
+         \n      - path1/to\
+         \n      - path2/to",
     );
 
     tests_utils::fs::assert_file_contents_eq(

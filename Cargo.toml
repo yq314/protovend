@@ -1,7 +1,7 @@
 [package]
 name = "protovend"
-version = "4.0.0"
-authors = ["Skyscanner's Lego squad <legosquad@skyscanner.net>"]
+version = "4.1.0"
+authors = ["GoJek Pricing Team <pricing-devs@gojek.com>"]
 edition = "2018"
 
 [dependencies]

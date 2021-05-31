@@ -43,6 +43,10 @@ enum Subcommand {
         url: GitUrl,
         #[structopt(short, long, default_value = "master")]
         branch: String,
+        #[structopt(short = "d", long, default_value = "proto")]
+        proto_dir: String,
+        #[structopt(short, long, default_value = "")]
+        proto_path: String,
     },
     ///Update one or all repos in protovend metadata file to latest version
     Update { repo: Option<GitUrl> },
@@ -50,8 +54,6 @@ enum Subcommand {
     Install {},
     ///Delete all locally cached repos stored in protovend folder
     Cleanup {},
-    ///Lint function to ensure proto files and directories are valid for the protovend tool
-    Lint {},
 }
 
 fn setup_logger(level: log::LevelFilter) -> std::result::Result<(), fern::InitError> {
@@ -76,11 +78,15 @@ fn run_command(opts: Protovend) -> protovend::Result<()> {
 
     match opts.sub {
         Subcommand::Init {} => protovend::init(),
-        Subcommand::Add { url, branch } => protovend::add(url, branch),
+        Subcommand::Add {
+            url,
+            branch,
+            proto_dir,
+            proto_path,
+        } => protovend::add(url, branch, proto_dir, proto_path),
         Subcommand::Update { repo } => protovend::update(repo),
         Subcommand::Install {} => protovend::install(),
         Subcommand::Cleanup {} => protovend::cleanup(),
-        Subcommand::Lint {} => protovend::lint(),
     }
 }
 

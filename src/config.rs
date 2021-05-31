@@ -14,7 +14,7 @@
  * limitations under the License.
 */
 
-use crate::git_url::{GitUrl, Host, Repo};
+use crate::git_url::GitUrl;
 use crate::util;
 use crate::Result;
 use failure::format_err;
@@ -25,7 +25,6 @@ use serde::{Deserialize, Serialize};
 use serde_yaml;
 use std::fs::File;
 use std::path::PathBuf;
-use std::str::FromStr;
 
 #[cfg(test)]
 #[path = "../tests_utils/mod.rs"]
@@ -39,13 +38,14 @@ lazy_static! {
 pub struct Dependency {
     pub url: GitUrl,
     pub branch: String,
+    pub proto_dir: String,
+    pub proto_paths: Vec<String>,
 }
 
 #[derive(Debug, PartialEq, Deserialize)]
-pub struct GithubDependency {
-    pub repo: Repo,
+pub struct LegacyDependency {
+    pub url: GitUrl,
     pub branch: String,
-    pub host: Host,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -57,7 +57,7 @@ pub struct ProtovendConfig {
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct LegacyProtovendConfig {
     pub min_protovend_version: Version,
-    pub vendor: Vec<GithubDependency>,
+    pub vendor: Vec<LegacyDependency>,
 }
 
 #[derive(Debug, PartialEq, Deserialize)]
@@ -84,13 +84,13 @@ impl From<LegacyProtovendConfig> for ProtovendConfig {
     }
 }
 
-impl From<GithubDependency> for Dependency {
-    fn from(dep: GithubDependency) -> Self {
-        let url = format!("git@{}:{}.git", dep.host, dep.repo);
-        let url = GitUrl::from_str(url.as_str()).unwrap();
+impl From<LegacyDependency> for Dependency {
+    fn from(dep: LegacyDependency) -> Self {
         Dependency {
-            url,
+            url: dep.url.clone(),
             branch: dep.branch,
+            proto_dir: String::from("proto"),
+            proto_paths: vec![dep.url.sanitised_path()],
         }
     }
 }
@@ -110,28 +110,46 @@ impl ProtovendConfig {
         serde_yaml::to_writer(f, &self).map_err(|e| e.into())
     }
 
-    pub fn add_dependency(&mut self, url: GitUrl, branch: String) -> Result<()> {
+    pub fn add_dependency(
+        &mut self,
+        url: GitUrl,
+        branch: String,
+        proto_dir: String,
+        proto_path: String,
+    ) -> Result<()> {
         let existing_dep = self.vendor.iter_mut().find(|dep| dep.url == url);
 
         match existing_dep {
             Some(dep) => {
-                if dep.branch == branch {
-                    log::info!(
-                        "{} has already added to {}",
-                        url,
-                        PROTOVEND_YAML.to_string_lossy()
-                    );
-                    Ok(())
-                } else {
+                if dep.branch != branch {
                     dep.branch = branch.clone();
+                    log::info!("Updated {} to use branch {}", url, branch)
+                }
+                if dep.proto_dir != proto_dir {
+                    dep.proto_dir = proto_dir.clone();
+                    log::info!("Updated {} to use proto_dir {}", url, proto_dir)
+                }
+                if dep.proto_paths.contains(&proto_path) {
+                    self.write().map(|_| {
+                        log::info!(
+                            "{}({}) has already added to {}",
+                            url,
+                            proto_path,
+                            PROTOVEND_YAML.to_string_lossy()
+                        )
+                    })
+                } else {
+                    dep.proto_paths.push(proto_path.clone());
                     self.write()
-                        .map(|_| log::info!("Updated {} to use branch {}", url, branch))
+                        .map(|_| log::info!("Added proto_path {} to {}", proto_path, url))
                 }
             }
             None => {
                 let new = Dependency {
                     url: url.clone(),
                     branch,
+                    proto_dir,
+                    proto_paths: vec![proto_path],
                 };
                 self.vendor.push(new);
                 self.write()
@@ -197,47 +215,23 @@ mod tests {
              \nmin_protovend_version: 0.1.8 \
              \nvendor: \
              \n  - url: git@github.skyscannertools.net:cell-placement/cell-metadata-service.git \
-             \n    branch: master";
+             \n    branch: master \
+             \n    proto_dir: proto \
+             \n    proto_paths: \
+             \n      - path/to";
 
         let config_path =
             tests_utils::fs::write_contents_to_temp_file(config_contents, "protovend_config");
 
         let expected_config = ProtovendConfig {
-            min_protovend_version: Version::from_str("0.1.8").unwrap(),
+            min_protovend_version: "0.1.8".parse::<Version>().unwrap(),
             vendor: vec![Dependency {
-                url: GitUrl::from_str(
-                    "git@github.skyscannertools.net:cell-placement/cell-metadata-service.git",
-                )
-                .unwrap(),
+                url: "git@github.skyscannertools.net:cell-placement/cell-metadata-service.git"
+                    .parse::<GitUrl>()
+                    .unwrap(),
                 branch: String::from("master"),
-            }],
-        };
-
-        let actual_config = load_config(&config_path).unwrap();
-
-        assert_eq!(expected_config, actual_config);
-    }
-
-    #[test]
-    fn test_correctly_parses_legacy_config() {
-        let config_contents = "--- \
-                               \nmin_protovend_version: 0.1.8 \
-                               \nvendor: \
-                               \n  - repo: cell-placement/cell-metadata-service \
-                               \n    branch: master \
-                               \n    host: github.skyscannertools.net";
-
-        let config_path =
-            tests_utils::fs::write_contents_to_temp_file(config_contents, "legacy_config");
-
-        let expected_config = ProtovendConfig {
-            min_protovend_version: Version::from_str("0.1.8").unwrap(),
-            vendor: vec![Dependency {
-                url: GitUrl::from_str(
-                    "git@github.skyscannertools.net:cell-placement/cell-metadata-service.git",
-                )
-                .unwrap(),
-                branch: String::from("master"),
+                proto_dir: String::from("proto"),
+                proto_paths: vec![String::from("path/to")],
             }],
         };
 
@@ -256,7 +250,7 @@ mod tests {
             tests_utils::fs::write_contents_to_temp_file(config_contents, "empty_config");
 
         let expected_config = ProtovendConfig {
-            min_protovend_version: Version::from_str("0.1.8").unwrap(),
+            min_protovend_version: "0.1.8".parse::<Version>().unwrap(),
             vendor: vec![],
         };
 
@@ -266,43 +260,14 @@ mod tests {
     }
 
     #[test]
-    fn test_config_from_legacy_config() {
-        let legacy_config = LegacyProtovendConfig {
-            min_protovend_version: Version::from_str("0.1.8").unwrap(),
-            vendor: vec![GithubDependency {
-                repo: Repo::from_str("cell-placement/cell-metadata-service").unwrap(),
-                branch: String::from("master"),
-                host: Host {
-                    0: String::from("github.skyscannertools.net"),
-                },
-            }],
-        };
-
-        let expected_config = ProtovendConfig {
-            min_protovend_version: Version::from_str("0.1.8").unwrap(),
-            vendor: vec![Dependency {
-                url: GitUrl::from_str(
-                    "git@github.skyscannertools.net:cell-placement/cell-metadata-service.git",
-                )
-                .unwrap(),
-                branch: String::from("master"),
-            }],
-        };
-
-        let actual_config = ProtovendConfig::from(legacy_config);
-
-        assert_eq!(expected_config, actual_config);
-    }
-
-    #[test]
     fn test_config_from_empty_config() {
         let legacy_config = EmptyProtovendConfig {
-            min_protovend_version: Version::from_str("0.1.8").unwrap(),
+            min_protovend_version: "0.1.8".parse::<Version>().unwrap(),
             vendor: (),
         };
 
         let expected_config = ProtovendConfig {
-            min_protovend_version: Version::from_str("0.1.8").unwrap(),
+            min_protovend_version: "0.1.8".parse::<Version>().unwrap(),
             vendor: vec![],
         };
 

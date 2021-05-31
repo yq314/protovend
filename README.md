@@ -1,5 +1,3 @@
-[![Build Status](https://travis-ci.org/Skyscanner/protovend.svg?branch=master)](https://travis-ci.org/Skyscanner/protovend)
-
 # ![protovend](docs/logo.png)
 
 Protovend is a tool for managing your vendored protobuf files with ease. Simply install the tool and you can run it like git from the root of the project.
@@ -29,6 +27,13 @@ In these examples, we'll be vendoring protos from `somegroup/producer-service` (
    ```
    $ protovend add git@github.com:somegroup/producer-service.git
    (INFO) somegroup/producer-service added to protovend metadata
+   ```
+   The default option requires vendoring project to put all protos under `/proto/<sanitised_url_path>` directory. 
+   For some external or legacy projects that you can't control the structure, additional parameter `--proto-dir(-d)` and `--proto-path(-p)` can be used:
+   
+   ```
+   $ protovend add https://github.com/googleapis/googleapis.git -d . -p google/api
+   $ protovend add git@source.golabs.io:kernel/hermes/esb-log-entities.git -d src/main/proto -p gojek/esb/pricing
    ```
 
 3. `protovend install`: Fetching and vendoring protos from the dependency, and generating a lockfile
@@ -69,6 +74,12 @@ In these examples, we'll be vendoring protos from `somegroup/producer-service` (
      - .protovend.lock
      - third_party/protovend
    ```
+   
+6. `protovend cleanup`: Delete all locally cached repos stored in protovend folder
+
+   ```
+   $ protovend cleanup
+   ```
 
 ## Transitive dependencies
 
@@ -80,7 +91,7 @@ Given that deep/complex interdependencies in protobuf schema definitions are lik
 
 ## How it works
 
-Protovend looks for a `/proto` folder in the repository that is being vendored, and copies all `*.proto` files found into `/vendor/proto` in the local repository.
+Protovend looks for a `/proto` (or a folder specified via `-d`) folder in the repository that is being vendored, and copies all `*.proto` files found into `./third_party/` in the local repository.
 
 When you run protovend in a project it generates a `.protovend.yml` and `.protovend.lock` file. These are configuration files that contain all of the information required for vendoring.
 
@@ -95,10 +106,13 @@ To remove a vendored service the service entry here should be removed.
 #### Example `.protovend.yml`
 
 ```yml
-min_protovend_version: 1.0.3
+min_protovend_version: 4.1.0
 vendor:
   - branch: master
     repo: somegroup/producer-service
+    proto_dir: proto
+    proto_paths:
+       - path/to/proto
 ```
 
 ### `protovend.lock`
@@ -114,7 +128,11 @@ imports:
   - branch: master
     commit: 6931b681ddea94753abb40105672c66d7e08d551
     repo: somegroup/producer-service
-min_protovend_version: 1.0.3
+    proto_dir: proto
+    proto_paths:
+       - path/to/proto
+       - path/to/another_proto
+min_protovend_version: 4.1.0
 updated: 2020-01-01 16:01:24.331398
 ```
 
@@ -130,7 +148,10 @@ This is wiped and re-generated during every `protovend install` and `protovend u
 
 # Installation
 
-TODO - once published to brew add steps here
+```sh
+> brew tap pricing/tools git@source.golabs.io:Pricing/homebrew-tools.git
+> brew install protovend
+```
 
 ## Usage
 
@@ -142,7 +163,6 @@ Commands:
   cleanup  Delete all locally cached repos stored in...
   init     Initialise current directory with protovend...
   install  Install copies of protofiles declared in...
-  lint     Lint function to ensure proto files are valid...
   update   Update one or all repos in protovend metadata...
 ```
 
@@ -179,7 +199,7 @@ cargo fmt --all
 
 ## Contributing
 
-To contribute please read our [guidelines](https://github.com/Skyscanner/protovend/blob/master/CONTRIBUTING.md).
+To contribute please read our [guidelines](./CONTRIBUTING.md).
 
 ## Attribution
 

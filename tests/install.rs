@@ -152,6 +152,8 @@ fn test_install_branch() {
 
     assert!(contents.contains("url: \"https://github.com/Skyscanner/protovend-test-protos.git\""));
     assert!(contents.contains("min_protovend_version"));
+    assert!(contents.contains("proto_dir"));
+    assert!(contents.contains("proto_paths"));
 
     assert!(dir
         .path()
@@ -191,6 +193,8 @@ fn test_install_structured() {
 
     assert!(contents.contains("url: \"https://github.com/Skyscanner/protovend-test-protos.git\""));
     assert!(contents.contains("min_protovend_version"));
+    assert!(contents.contains("proto_dir"));
+    assert!(contents.contains("proto_paths"));
 
     assert!(dir
         .path()
@@ -271,6 +275,8 @@ fn test_install_switch_branch() {
     assert!(contents.contains("url: \"https://github.com/Skyscanner/protovend-test-protos.git\""));
     assert!(contents.contains("branch: branch-2"));
     assert!(contents.contains("min_protovend_version"));
+    assert!(contents.contains("proto_dir"));
+    assert!(contents.contains("proto_paths"));
 
     assert!(dir
         .path()
@@ -297,6 +303,8 @@ fn test_install_switch_branch() {
     assert!(contents.contains("url: \"https://github.com/Skyscanner/protovend-test-protos.git\""));
     assert!(contents.contains("branch: master"));
     assert!(contents.contains("min_protovend_version"));
+    assert!(contents.contains("proto_dir"));
+    assert!(contents.contains("proto_paths"));
 
     assert!(dir
         .path()
@@ -305,5 +313,60 @@ fn test_install_switch_branch() {
     assert!(!dir
         .path()
         .join("./third_party/protovend/skyscanner/protovendtestprotos/heartbeat-v2.proto")
+        .exists());
+}
+
+#[test]
+fn test_install_custom_path() {
+    let dir = tempfile::tempdir().unwrap();
+
+    let status = command(&dir).arg("init").status().unwrap();
+
+    assert!(status.success());
+    assert!(dir.path().join(".protovend.yml").exists());
+
+    let status = command(&dir)
+        .arg("add")
+        .arg("https://github.com/googleapis/googleapis.git")
+        .arg("--proto-dir=.")
+        .arg("--proto-path=google/api")
+        .status()
+        .unwrap();
+
+    assert!(status.success());
+
+    let status = command(&dir)
+        .arg("add")
+        .arg("https://github.com/googleapis/googleapis.git")
+        .arg("--proto-dir=.")
+        .arg("--proto-path=google/datastore/v1beta3")
+        .status()
+        .unwrap();
+
+    assert!(status.success());
+
+    let status = command(&dir).arg("install").status().unwrap();
+
+    assert!(status.success());
+
+    let mut file = File::open(dir.path().join(".protovend.lock")).unwrap();
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).unwrap();
+
+    assert!(contents.contains("url: \"https://github.com/googleapis/googleapis.git\""));
+    assert!(contents.contains("branch: master"));
+    assert!(contents.contains("min_protovend_version"));
+    assert!(contents.contains("proto_dir: \".\""));
+    assert!(contents.contains("proto_paths"));
+    assert!(contents.contains("google/api"));
+    assert!(contents.contains("google/datastore/v1beta3"));
+
+    assert!(dir
+        .path()
+        .join("./third_party/protovend/google/api/http.proto")
+        .exists());
+    assert!(dir
+        .path()
+        .join("./third_party/protovend/google/datastore/v1beta3/datastore.proto")
         .exists());
 }

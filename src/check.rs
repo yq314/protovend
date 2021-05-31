@@ -15,7 +15,6 @@
 */
 
 use crate::Result;
-use crate::{git_url::GitUrl, PROTOS_DIRECTORY};
 use failure::format_err;
 use std::ffi::OsStr;
 use std::fmt::{Display, Formatter, Result as FmtResult};
@@ -48,17 +47,22 @@ impl Display for CheckResult {
     }
 }
 
-pub fn run_checks<P: AsRef<Path>>(project_root: P, url: &GitUrl) -> Result<()> {
-    let proto_root_folder = project_root.as_ref().join(PROTOS_DIRECTORY.as_path());
-    let project_proto_dir = proto_root_folder.join(url.sanitised_path());
-    let relative_proto_dir = project_proto_dir.strip_prefix(&proto_root_folder)?;
-
+pub fn run_checks<P: AsRef<Path>>(
+    project_root: P,
+    proto_dir: &str,
+    proto_path: &str,
+) -> Result<()> {
+    let proto_root_folder = project_root.as_ref().join(Path::new(proto_dir));
     log::info!("Running protovend checks..");
+
+    let project_proto_dir = proto_root_folder.join(Path::new(proto_path));
+    let relative_proto_dir = project_proto_dir.strip_prefix(&proto_root_folder)?;
 
     let results: Vec<Result<Vec<CheckResult>>> = vec![
         check_proto_directory_structure(project_proto_dir.as_path(), proto_root_folder.as_path()),
         check_root_proto_folder_has_no_protos(relative_proto_dir, &proto_root_folder),
     ];
+
     let results: Result<Vec<Vec<CheckResult>>> = results.into_iter().collect();
     let results = results?.concat();
 
@@ -82,7 +86,7 @@ fn check_root_proto_folder_has_no_protos<P: AsRef<Path>>(
     proto_root_folder: P,
 ) -> Result<Vec<CheckResult>> {
     let description = format!(
-        ".proto files should not be stored in the root /proto folder; 
+        ".proto files should not be stored in the root proto folder;
                       they should be moved to {}. 
                       If source is from another repo please ask the owners to update",
         relative_proto_dir.as_ref().display()
