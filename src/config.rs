@@ -18,21 +18,16 @@ use crate::git_url::GitUrl;
 use crate::util;
 use crate::Result;
 use failure::format_err;
-use lazy_static::lazy_static;
-use log;
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use serde_yaml;
 use std::fs::File;
-use std::path::PathBuf;
+use std::path::Path;
 
 #[cfg(test)]
 #[path = "../tests_utils/mod.rs"]
 mod tests_utils;
 
-lazy_static! {
-    pub static ref PROTOVEND_YAML: PathBuf = PathBuf::from(".protovend.yml");
-}
+pub const PROTOVEND_YAML: &str = ".protovend.yml";
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Dependency {
@@ -40,12 +35,16 @@ pub struct Dependency {
     pub branch: String,
     pub proto_dir: String,
     pub proto_paths: Vec<String>,
+    pub filename_regex: String,
+    pub resolve_dependency: bool,
 }
 
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct LegacyDependency {
     pub url: GitUrl,
     pub branch: String,
+    pub proto_dir: String,
+    pub proto_paths: Vec<String>,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -89,8 +88,10 @@ impl From<LegacyDependency> for Dependency {
         Dependency {
             url: dep.url.clone(),
             branch: dep.branch,
-            proto_dir: String::from("proto"),
-            proto_paths: vec![dep.url.sanitised_path()],
+            proto_dir: dep.proto_dir,
+            proto_paths: dep.proto_paths,
+            filename_regex: String::from(".*"),
+            resolve_dependency: false,
         }
     }
 }
@@ -105,7 +106,7 @@ enum Config {
 
 impl ProtovendConfig {
     pub fn write(&mut self) -> Result<()> {
-        let f = File::create(PROTOVEND_YAML.as_path())?;
+        let f = File::create(Path::new(PROTOVEND_YAML))?;
         self.vendor.sort_by(|a, b| a.url.cmp(&b.url));
         serde_yaml::to_writer(f, &self).map_err(|e| e.into())
     }
@@ -116,6 +117,8 @@ impl ProtovendConfig {
         branch: String,
         proto_dir: String,
         proto_path: String,
+        filename_regex: String,
+        resolve_dependency: bool,
     ) -> Result<()> {
         let existing_dep = self.vendor.iter_mut().find(|dep| dep.url == url);
 
@@ -129,13 +132,25 @@ impl ProtovendConfig {
                     dep.proto_dir = proto_dir.clone();
                     log::info!("Updated {} to use proto_dir {}", url, proto_dir)
                 }
+                if dep.filename_regex != filename_regex {
+                    dep.filename_regex = filename_regex.clone();
+                    log::info!("Updated {} to use filename_regex {}", url, filename_regex)
+                }
+                if dep.resolve_dependency != resolve_dependency {
+                    dep.resolve_dependency = resolve_dependency;
+                    log::info!(
+                        "Updated {} to use resolve_dependency {}",
+                        url,
+                        resolve_dependency
+                    )
+                }
                 if dep.proto_paths.contains(&proto_path) {
                     self.write().map(|_| {
                         log::info!(
                             "{}({}) has already added to {}",
                             url,
                             proto_path,
-                            PROTOVEND_YAML.to_string_lossy()
+                            PROTOVEND_YAML
                         )
                     })
                 } else {
@@ -150,6 +165,8 @@ impl ProtovendConfig {
                     branch,
                     proto_dir,
                     proto_paths: vec![proto_path],
+                    filename_regex,
+                    resolve_dependency,
                 };
                 self.vendor.push(new);
                 self.write()
@@ -160,11 +177,9 @@ impl ProtovendConfig {
 }
 
 pub fn init() -> Result<()> {
-    if PROTOVEND_YAML.exists() {
-        log::warn!(
-            "{} file already exists in project",
-            PROTOVEND_YAML.to_string_lossy()
-        );
+    let protovend_yaml_path = Path::new(PROTOVEND_YAML);
+    if protovend_yaml_path.exists() {
+        log::warn!("{} file already exists in project", PROTOVEND_YAML);
         Ok(())
     } else {
         let mut config = ProtovendConfig {
@@ -173,17 +188,17 @@ pub fn init() -> Result<()> {
         };
         config
             .write()
-            .map(|_| log::info!("Created {}", PROTOVEND_YAML.as_path().to_string_lossy()))
+            .map(|_| log::info!("Created {}", PROTOVEND_YAML))
     }
 }
 
 pub fn get_config() -> Result<ProtovendConfig> {
-    load_config(&PROTOVEND_YAML)
+    load_config(Path::new(PROTOVEND_YAML))
 }
 
-fn load_config(config_file: &PathBuf) -> Result<ProtovendConfig> {
+fn load_config(config_file: &Path) -> Result<ProtovendConfig> {
     if config_file.is_file() {
-        let f = File::open(config_file.as_path())?;
+        let f = File::open(config_file)?;
         let config: Config = serde_yaml::from_reader(f)?;
 
         let config: ProtovendConfig = match config {
@@ -210,15 +225,16 @@ mod tests {
 
     #[test]
     fn test_correctly_parses_config() {
-        let config_contents =
-            "--- \
+        let config_contents = "--- \
              \nmin_protovend_version: 0.1.8 \
              \nvendor: \
              \n  - url: git@github.skyscannertools.net:cell-placement/cell-metadata-service.git \
              \n    branch: master \
              \n    proto_dir: proto \
              \n    proto_paths: \
-             \n      - path/to";
+             \n      - path/to \
+             \n    filename_regex: ^(a|b) \
+             \n    resolve_dependency: true";
 
         let config_path =
             tests_utils::fs::write_contents_to_temp_file(config_contents, "protovend_config");
@@ -232,6 +248,8 @@ mod tests {
                 branch: String::from("master"),
                 proto_dir: String::from("proto"),
                 proto_paths: vec![String::from("path/to")],
+                filename_regex: String::from("^(a|b)"),
+                resolve_dependency: true,
             }],
         };
 

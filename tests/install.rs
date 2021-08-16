@@ -18,6 +18,7 @@ use common::command;
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use tempfile;
+use walkdir::WalkDir;
 
 mod common;
 
@@ -219,7 +220,7 @@ fn test_install_not_existing() {
 
     let status = command(&dir)
         .arg("add")
-        .arg("https://github.com/Skyscanner/no-such-repo.git")
+        .arg("git@github.com:username/no-such-repo.git")
         .status()
         .unwrap();
 
@@ -290,7 +291,7 @@ fn test_install_switch_branch() {
     fs::remove_file(dir.path().join(".protovend.lock")).unwrap();
 
     let mut file = File::create(dir.path().join(".protovend.yml")).unwrap();
-    file.write_all(b"min_protovend_version: 0.0.0\nvendor:\n- branch: master\n  url: \"https://github.com/Skyscanner/protovend-test-protos.git\"").unwrap();
+    file.write_all(b"min_protovend_version: 0.0.0\nvendor:\n- branch: master\n  proto_dir: proto\n  proto_paths:\n    - skyscanner/protovendtestprotos\n  url: \"https://github.com/Skyscanner/protovend-test-protos.git\"").unwrap();
 
     let status = command(&dir).arg("install").status().unwrap();
 
@@ -369,4 +370,153 @@ fn test_install_custom_path() {
         .path()
         .join("./third_party/protovend/google/datastore/v1beta3/datastore.proto")
         .exists());
+}
+
+#[test]
+fn test_install_filter_filename() {
+    let dir = tempfile::tempdir().unwrap();
+
+    let status = command(&dir).arg("init").status().unwrap();
+
+    assert!(status.success());
+    assert!(dir.path().join(".protovend.yml").exists());
+
+    let status = command(&dir)
+        .arg("add")
+        .arg("https://github.com/googleapis/googleapis.git")
+        .arg("--proto-dir=.")
+        .arg("--proto-path=google/api")
+        .arg("--filename-regex=^http.*$")
+        .status()
+        .unwrap();
+
+    assert!(status.success());
+
+    let status = command(&dir).arg("install").status().unwrap();
+
+    assert!(status.success());
+
+    let mut file = File::open(dir.path().join(".protovend.lock")).unwrap();
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).unwrap();
+
+    assert!(contents.contains("url: \"https://github.com/googleapis/googleapis.git\""));
+    assert!(contents.contains("branch: master"));
+    assert!(contents.contains("min_protovend_version"));
+    assert!(contents.contains("proto_dir: \".\""));
+    assert!(contents.contains("proto_paths"));
+    assert!(contents.contains("google/api"));
+    assert!(contents.contains("^http.*$"));
+
+    let mut installed = vec![];
+    for entry in
+        WalkDir::new(dir.path().join("./third_party/protovend/google/api/")).sort_by_file_name()
+    {
+        let entry = entry.unwrap();
+        let filename = entry
+            .path()
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        if entry.metadata().unwrap().is_file() {
+            installed.push(filename);
+        }
+    }
+    assert_eq!(
+        installed,
+        vec!["http.proto", "httpbody.proto", "http_request.proto"]
+    );
+}
+
+#[test]
+fn test_not_install_dependencies() {
+    let dir = tempfile::tempdir().unwrap();
+
+    let status = command(&dir).arg("init").status().unwrap();
+    assert!(status.success());
+
+    let status = command(&dir)
+        .arg("add")
+        .arg("https://github.com/googleapis/googleapis.git")
+        .arg("--proto-dir=.")
+        .arg("--proto-path=google/cloud/datacatalog/v1beta1")
+        .arg("--filename-regex=^policytagmanagerserialization$")
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let status = command(&dir).arg("install").status().unwrap();
+    assert!(status.success());
+
+    let mut installed = vec![];
+    for entry in WalkDir::new(dir.path().join("./third_party/protovend/")).sort_by_file_name() {
+        let entry = entry.unwrap();
+        let filename = entry
+            .path()
+            .strip_prefix(dir.path().join("./third_party/protovend/"))
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        if entry.metadata().unwrap().is_file() {
+            installed.push(filename);
+        }
+    }
+    assert_eq!(
+        installed,
+        vec!["google/cloud/datacatalog/v1beta1/policytagmanagerserialization.proto",]
+    );
+}
+
+#[test]
+fn test_install_dependencies() {
+    let dir = tempfile::tempdir().unwrap();
+
+    let status = command(&dir).arg("init").status().unwrap();
+    assert!(status.success());
+
+    let status = command(&dir)
+        .arg("add")
+        .arg("https://github.com/googleapis/googleapis.git")
+        .arg("--proto-dir=.")
+        .arg("--proto-path=google/cloud/datacatalog/v1beta1")
+        .arg("--filename-regex=^policytagmanagerserialization$")
+        .arg("--resolve-dependency")
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let status = command(&dir).arg("install").status().unwrap();
+    assert!(status.success());
+
+    let mut installed = vec![];
+    for entry in WalkDir::new(dir.path().join("./third_party/protovend/")).sort_by_file_name() {
+        let entry = entry.unwrap();
+        let filename = entry
+            .path()
+            .strip_prefix(dir.path().join("./third_party/protovend/"))
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        if entry.metadata().unwrap().is_file() {
+            installed.push(filename);
+        }
+    }
+    assert_eq!(
+        installed,
+        vec![
+            "google/api/annotations.proto",
+            "google/api/client.proto",
+            "google/api/field_behavior.proto",
+            "google/api/http.proto",
+            "google/api/resource.proto",
+            "google/cloud/datacatalog/v1beta1/policytagmanager.proto",
+            "google/cloud/datacatalog/v1beta1/policytagmanagerserialization.proto",
+            "google/cloud/datacatalog/v1beta1/timestamps.proto",
+            "google/iam/v1/iam_policy.proto",
+            "google/iam/v1/options.proto",
+            "google/iam/v1/policy.proto",
+            "google/type/expr.proto"
+        ]
+    );
 }

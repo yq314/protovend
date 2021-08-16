@@ -22,12 +22,10 @@ use crate::util;
 use crate::{date_compat, Result};
 use chrono::{Local, NaiveDateTime};
 use failure::format_err;
-use lazy_static::lazy_static;
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use serde_yaml;
 use std::fs::File;
-use std::path::PathBuf;
+use std::path::Path;
 
 pub mod vendor;
 
@@ -35,9 +33,7 @@ pub mod vendor;
 #[path = "../tests_utils/mod.rs"]
 mod tests_utils;
 
-lazy_static! {
-    pub static ref PROTOVEND_LOCK: PathBuf = PathBuf::from(".protovend.lock");
-}
+pub const PROTOVEND_LOCK: &str = ".protovend.lock";
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 struct Import {
@@ -46,6 +42,8 @@ struct Import {
     url: GitUrl,
     proto_dir: String,
     proto_paths: Vec<String>,
+    filename_regex: String,
+    resolve_dependency: bool,
 }
 
 #[derive(Deserialize)]
@@ -53,6 +51,8 @@ struct LegacyImport {
     branch: String,
     commit: String,
     url: GitUrl,
+    proto_dir: String,
+    proto_paths: Vec<String>,
 }
 
 impl From<LegacyImport> for Import {
@@ -61,8 +61,10 @@ impl From<LegacyImport> for Import {
             url: import.url.clone(),
             branch: import.branch,
             commit: import.commit,
-            proto_dir: String::from("proto"),
-            proto_paths: vec![import.url.sanitised_path()],
+            proto_dir: import.proto_dir,
+            proto_paths: import.proto_paths,
+            filename_regex: String::from(".*"),
+            resolve_dependency: false,
         }
     }
 }
@@ -122,7 +124,7 @@ impl ProtovendLock {
     }
 
     fn write(&mut self) -> Result<()> {
-        let f = File::create(PROTOVEND_LOCK.as_path())?;
+        let f = File::create(Path::new(PROTOVEND_LOCK))?;
         self.imports.sort_by(|a, b| a.url.cmp(&b.url));
         self.updated = Local::now().naive_local();
         Ok(serde_yaml::to_writer(f, &self)?)
@@ -157,12 +159,12 @@ impl ProtovendLock {
 }
 
 pub fn load_lock() -> Result<ProtovendLock> {
-    load_lockfile(&PROTOVEND_LOCK)
+    load_lockfile(Path::new(PROTOVEND_LOCK))
 }
 
-fn load_lockfile(lock_file: &PathBuf) -> Result<ProtovendLock> {
+fn load_lockfile(lock_file: &Path) -> Result<ProtovendLock> {
     if lock_file.exists() {
-        let f = File::open(lock_file.as_path())?;
+        let f = File::open(lock_file)?;
         let lock: Lock = serde_yaml::from_reader(f)?;
 
         let lock: ProtovendLock = match lock {
@@ -191,6 +193,8 @@ fn to_import(dep: Dependency) -> Result<Import> {
         url: dep.url,
         proto_dir: dep.proto_dir,
         proto_paths: dep.proto_paths,
+        filename_regex: dep.filename_regex,
+        resolve_dependency: dep.resolve_dependency,
     })
 }
 
@@ -212,11 +216,9 @@ fn diff_lock(
 }
 
 pub fn init() -> Result<()> {
-    if PROTOVEND_LOCK.exists() {
-        log::warn!(
-            "{} file already exists in project",
-            PROTOVEND_LOCK.to_string_lossy()
-        );
+    let protovend_lock_path = Path::new(PROTOVEND_LOCK);
+    if protovend_lock_path.exists() {
+        log::warn!("{} file already exists in project", PROTOVEND_LOCK);
         Ok(())
     } else {
         let mut lock = ProtovendLock {
@@ -225,7 +227,7 @@ pub fn init() -> Result<()> {
             updated: Local::now().naive_local(),
         };
         lock.write()
-            .map(|_| log::info!("Created {}", PROTOVEND_LOCK.as_path().to_string_lossy()))
+            .map(|_| log::info!("Created {}", PROTOVEND_LOCK))
     }
 }
 
@@ -235,8 +237,7 @@ mod tests {
 
     #[test]
     fn test_correctly_parses_lock() {
-        let lock_contents =
-            "--- \
+        let lock_contents = "--- \
              \nimports: \
              \n  - branch: master \
              \n    commit: a9fef901ae63f689a4180bf8255d16a45baf04a1 \
@@ -244,6 +245,8 @@ mod tests {
              \n    proto_dir: proto \
              \n    proto_paths: \
              \n      - path/to \
+             \n    filename_regex: \".*\"\
+             \n    resolve_dependency: true \
              \nmin_protovend_version: 0.1.8 \
              \nupdated: \"2019-11-20 15:02:12.330896\"";
 
@@ -258,6 +261,8 @@ mod tests {
                     .unwrap(),
                 proto_dir: String::from("proto"),
                 proto_paths: vec![String::from("path/to")],
+                filename_regex: String::from(".*"),
+                resolve_dependency: true,
             }],
             min_protovend_version: "0.1.8".parse::<Version>().unwrap(),
             updated: "2019-11-20T15:02:12.330896"

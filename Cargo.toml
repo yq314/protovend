@@ -1,6 +1,6 @@
 [package]
 name = "protovend"
-version = "4.1.0"
+version = "4.2.0"
 authors = ["GoJek Pricing Team <pricing-devs@gojek.com>"]
 edition = "2018"
 

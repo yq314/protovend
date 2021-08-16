@@ -83,11 +83,9 @@ In these examples, we'll be vendoring protos from `somegroup/producer-service` (
 
 ## Transitive dependencies
 
-Note that transitive dependencies between protobuf schemas are **explicitly not supported**.
-That is to say, if your dependencies have their own dependencies on schemas in other repos, you are responsible for resolving them and vendoring each.
+Note that transitive dependencies between protobuf schemas are only resolved if they are in the same repository, external dependencies are ignored.
 
-This design decision was mainly made to reduce the complexity of the tool, particularly when it comes to understanding versioning and potential version conflicts.
-Given that deep/complex interdependencies in protobuf schema definitions are likely to be a code smell, we believe that developers should be able to easily resolve their transitive dependencies, and are best placed to do so.
+Specify `--resolve-dependency` when running `protovend add` to use this feature. It's `off` by default.
 
 ## How it works
 
@@ -106,13 +104,15 @@ To remove a vendored service the service entry here should be removed.
 #### Example `.protovend.yml`
 
 ```yml
-min_protovend_version: 4.1.0
+min_protovend_version: 4.2.0
 vendor:
   - branch: master
     repo: somegroup/producer-service
     proto_dir: proto
     proto_paths:
        - path/to/proto
+    filename_regex: .*
+    resolve_dependency: false
 ```
 
 ### `protovend.lock`
@@ -132,7 +132,9 @@ imports:
     proto_paths:
        - path/to/proto
        - path/to/another_proto
-min_protovend_version: 4.1.0
+    filename_regex: .*
+    resolve_dependency: false
+min_protovend_version: 4.2.0
 updated: 2020-01-01 16:01:24.331398
 ```
 
@@ -180,7 +182,7 @@ protovend --debug COMMAND [ARGS]
 
 ### Prerequisites
 
-- Rust 1.37, Cargo
+- Rust 1.54, Cargo
 
 ### Instructions
 

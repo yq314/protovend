@@ -46,6 +46,8 @@ pub fn add(
     branch: String,
     proto_dir: String,
     proto_path: String,
+    filename_regex: String,
+    resolve_dependency: bool,
 ) -> Result<()> {
     let mut config = config::get_config()?;
 
@@ -58,7 +60,14 @@ pub fn add(
         proto_path
     };
 
-    config.add_dependency(url, branch, proto_dir, fixed_path)
+    config.add_dependency(
+        url,
+        branch,
+        proto_dir,
+        fixed_path,
+        filename_regex,
+        resolve_dependency,
+    )
 }
 
 pub fn install() -> Result<()> {
@@ -93,5 +102,5 @@ fn log_blurb() {
 Check the following protovend generated files and vendored proto directory (containing .proto files) into source control
   - {}
   - {}
-  - {}", config::PROTOVEND_YAML.display(), lock::PROTOVEND_LOCK.display(), lock::vendor::PROTOS_OUTPUT_DIRECTORY.display())
+  - {}", config::PROTOVEND_YAML, lock::PROTOVEND_LOCK, lock::vendor::PROTOS_OUTPUT_DIRECTORY)
 }

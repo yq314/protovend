@@ -58,13 +58,15 @@ fn test_add_with_init() {
 
     let expected_contents = String::from(
         "---\
-         \nmin_protovend_version: 4.1.0\
+         \nmin_protovend_version: 4.2.0\
          \nvendor:\
          \n  - url: \"https://github.com/Skyscanner/protovend-test-protos.git\"\
          \n    branch: master\
          \n    proto_dir: proto\
          \n    proto_paths:\
-         \n      - skyscanner/protovendtestprotos",
+         \n      - skyscanner/protovendtestprotos\
+         \n    filename_regex: \".*\"\
+         \n    resolve_dependency: false\n",
     );
 
     tests_utils::fs::assert_file_contents_eq(
@@ -95,6 +97,7 @@ fn test_add_two() {
         .arg("git@github.com:Skyscanner/protovend-test-protos-fake.git")
         .arg("-d=src/proto")
         .arg("-p=path/to")
+        .arg("-f=^(a|b)c$")
         .status()
         .unwrap();
 
@@ -102,18 +105,22 @@ fn test_add_two() {
 
     let expected_contents = String::from(
         "---\
-         \nmin_protovend_version: 4.1.0\
+         \nmin_protovend_version: 4.2.0\
          \nvendor:\
          \n  - url: \"git@github.com:Skyscanner/protovend-test-protos-fake.git\"\
          \n    branch: master\
          \n    proto_dir: src/proto\
          \n    proto_paths:\
          \n      - path/to\
+         \n    filename_regex: ^(a|b)c$\
+         \n    resolve_dependency: false\
          \n  - url: \"https://github.com/Skyscanner/protovend-test-protos.git\"\
          \n    branch: master\
          \n    proto_dir: proto\
          \n    proto_paths:\
-         \n      - skyscanner/protovendtestprotos",
+         \n      - skyscanner/protovendtestprotos\
+         \n    filename_regex: \".*\"\
+         \n    resolve_dependency: false\n",
     );
 
     tests_utils::fs::assert_file_contents_eq(
@@ -151,14 +158,16 @@ fn test_add_with_different_proto_paths() {
 
     let expected_contents = String::from(
         "---\
-         \nmin_protovend_version: 4.1.0\
+         \nmin_protovend_version: 4.2.0\
          \nvendor:\
          \n  - url: \"git@github.com:Skyscanner/protovend-test-protos2.git\"\
          \n    branch: master\
          \n    proto_dir: proto\
          \n    proto_paths:\
          \n      - path1/to\
-         \n      - path2/to",
+         \n      - path2/to\
+         \n    filename_regex: \".*\"\
+         \n    resolve_dependency: false\n",
     );
 
     tests_utils::fs::assert_file_contents_eq(

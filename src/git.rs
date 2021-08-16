@@ -34,7 +34,7 @@ pub fn get_latest_commit_sha(url: &GitUrl, branch_name: &str) -> Result<Oid> {
 }
 
 pub fn get_repo(url: &GitUrl, branch: &str, revision: &str) -> Result<Repository> {
-    let destination_path = get_destination_path(&url);
+    let destination_path = get_destination_path(url);
 
     if destination_path.exists() {
         log::debug!(

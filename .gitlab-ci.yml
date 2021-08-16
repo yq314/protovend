@@ -1,7 +1,7 @@
 variables:
   CARGO_HOME: $CI_PROJECT_DIR/.cargo
 
-image: "rust:1.37.0"
+image: "rust:1.54.0"
 
 .cargo_cache: &cargo_cache
   cache:

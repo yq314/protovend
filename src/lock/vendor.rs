@@ -19,13 +19,16 @@ use crate::Result;
 use crate::{check, git};
 use failure::format_err;
 use lazy_static::lazy_static;
+use regex::Regex;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
+pub const PROTOS_OUTPUT_DIRECTORY: &str = "third_party/protovend";
+
 lazy_static! {
-    pub static ref PROTOS_OUTPUT_DIRECTORY: PathBuf = PathBuf::from("third_party/protovend");
+    static ref PROTO_IMPORTS_RE: Regex = Regex::new(r#"import "([\w\\/\\.]+)";"#).unwrap();
 }
 
 pub(super) fn vendor_import(import: &Import) -> Result<()> {
@@ -37,18 +40,20 @@ pub(super) fn vendor_import(import: &Import) -> Result<()> {
     let repo = git::get_repo(&import.url, &import.branch, &import.commit)?;
     let clone_location = repo.workdir().unwrap(); //Can unwrap safely as repository is not bare
 
-    for path in &import.proto_paths {
-        let full_path = Path::new(&import.proto_dir).join(Path::new(path));
-        let src_folder = create_src_folder_path(&clone_location, &full_path);
-        let dest_folder = create_dest_folder_path(path)?;
-
+    for proto_path in &import.proto_paths {
+        let src_dir = &clone_location.join(&import.proto_dir);
         log::info!(
             "calling check with {} and {}",
             clone_location.display(),
             import.url
         );
-        check::run_checks(clone_location, &import.proto_dir, path)?;
-        let result = find_and_copy_protos(&src_folder, &dest_folder);
+        check::run_checks(clone_location, &import.proto_dir, proto_path)?;
+        let result = find_and_copy_protos(
+            src_dir,
+            proto_path,
+            &import.filename_regex,
+            import.resolve_dependency,
+        );
         match result {
             Ok(res) => res,
             Err(err) => log::error!("{}", err),
@@ -58,26 +63,29 @@ pub(super) fn vendor_import(import: &Import) -> Result<()> {
 }
 
 pub(super) fn prepare_output_directory() -> Result<()> {
-    if PROTOS_OUTPUT_DIRECTORY.exists() {
-        fs::remove_dir_all(PROTOS_OUTPUT_DIRECTORY.as_path())?;
+    let protos_output_dir = Path::new(PROTOS_OUTPUT_DIRECTORY);
+    if protos_output_dir.exists() {
+        fs::remove_dir_all(protos_output_dir)?;
     }
 
-    fs::create_dir_all(PROTOS_OUTPUT_DIRECTORY.as_path())?;
+    fs::create_dir_all(protos_output_dir)?;
 
     Ok(())
 }
 
 fn create_dest_folder_path(repo: &str) -> Result<PathBuf> {
     Ok(env::current_dir()?
-        .join(PROTOS_OUTPUT_DIRECTORY.as_path())
+        .join(Path::new(PROTOS_OUTPUT_DIRECTORY))
         .join(Path::new(repo)))
 }
 
-fn create_src_folder_path<P: AsRef<Path>>(src_working_dir: P, proto_path: &PathBuf) -> PathBuf {
-    src_working_dir.as_ref().join(proto_path.as_path())
-}
-
-fn find_and_copy_protos(src_folder: &Path, dest_folder: &Path) -> Result<()> {
+fn find_and_copy_protos(
+    src_dir: &Path,
+    proto_path: &str,
+    filename_regex: &str,
+    resolve_dependency: bool,
+) -> Result<()> {
+    let src_folder = &src_dir.join(Path::new(proto_path));
     if !src_folder.exists() {
         return Err(format_err!(
             "Cannot find expected directory {}",
@@ -85,17 +93,56 @@ fn find_and_copy_protos(src_folder: &Path, dest_folder: &Path) -> Result<()> {
         ));
     }
 
+    let re = Regex::new(filename_regex).unwrap();
     for entry in WalkDir::new(src_folder) {
         let entry = entry?;
-        if entry.metadata()?.is_file() && entry.file_name().to_string_lossy().ends_with(".proto") {
-            let src_proto_file = entry.path();
-            let relative = src_proto_file.strip_prefix(src_folder)?;
-            let dest = dest_folder.join(relative);
-            fs::create_dir_all(dest.parent().unwrap())?;
+        if entry.metadata()?.is_file()
+            && entry.file_name().to_string_lossy().ends_with(".proto")
+            && re.is_match(entry.path().file_stem().unwrap().to_str().unwrap())
+        {
+            copy_protos(src_dir, proto_path, entry.path(), resolve_dependency)?;
+        }
+    }
 
-            fs::copy(src_proto_file, &dest)?;
+    Ok(())
+}
 
-            log::debug!("Copied {} to {}", src_proto_file.display(), dest.display());
+fn copy_protos(
+    src_dir: &Path,
+    proto_path: &str,
+    proto_file_path: &Path,
+    resolve_dependency: bool,
+) -> Result<()> {
+    let dest_folder = create_dest_folder_path(proto_path)?;
+    let relative_path = proto_file_path.strip_prefix(src_dir.join(&proto_path))?;
+    let dest_file = dest_folder.join(relative_path);
+    fs::create_dir_all(dest_file.parent().unwrap())?;
+    fs::copy(proto_file_path, &dest_file)?;
+    log::debug!(
+        "Copied {} to {}",
+        proto_file_path.display(),
+        dest_file.display()
+    );
+
+    if resolve_dependency {
+        let file_content = fs::read_to_string(proto_file_path)?;
+        for cap in PROTO_IMPORTS_RE.captures_iter(file_content.as_str()) {
+            let import_path = Path::new(&src_dir).join(&cap[1]);
+            if import_path.exists() {
+                log::debug!("Found an imported dependency {}", &cap[1]);
+                let import_proto_path = Path::new(&cap[1]).parent().unwrap();
+                copy_protos(
+                    src_dir,
+                    import_proto_path.to_str().unwrap(),
+                    &import_path,
+                    resolve_dependency,
+                )?;
+            } else {
+                log::debug!(
+                    "Imported {} is not in the same repository",
+                    import_path.display()
+                );
+            }
         }
     }
 
