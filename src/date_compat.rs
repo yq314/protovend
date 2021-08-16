@@ -32,7 +32,7 @@ pub fn deserialize<'de, D>(d: D) -> Result<NaiveDateTime, D::Error>
 where
     D: Deserializer<'de>,
 {
-    Ok(d.deserialize_str(DateCompatVisitor)?)
+    d.deserialize_str(DateCompatVisitor)
 }
 
 struct DateCompatVisitor;

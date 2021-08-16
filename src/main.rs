@@ -15,7 +15,6 @@
 */
 
 use human_panic::setup_panic;
-use log;
 use protovend::git_url::GitUrl;
 use structopt::clap::ArgGroup;
 use structopt::StructOpt;
@@ -41,12 +40,21 @@ enum Subcommand {
     ///Add a given git repo to projects metadata file
     Add {
         url: GitUrl,
+        /// Git branch to checkout proto files from
         #[structopt(short, long, default_value = "master")]
         branch: String,
+        /// Directory to search for proto files
         #[structopt(short = "d", long, default_value = "proto")]
         proto_dir: String,
+        /// Path to proto files
         #[structopt(short, long, default_value = "")]
         proto_path: String,
+        /// Regex to filter proto filenames, without file extension
+        #[structopt(short, long, default_value = ".*")]
+        filename_regex: String,
+        /// Whether or not to resolve dependencies in proto files
+        #[structopt(short, long)]
+        resolve_dependency: bool,
     },
     ///Update one or all repos in protovend metadata file to latest version
     Update { repo: Option<GitUrl> },
@@ -83,7 +91,16 @@ fn run_command(opts: Protovend) -> protovend::Result<()> {
             branch,
             proto_dir,
             proto_path,
-        } => protovend::add(url, branch, proto_dir, proto_path),
+            filename_regex,
+            resolve_dependency,
+        } => protovend::add(
+            url,
+            branch,
+            proto_dir,
+            proto_path,
+            filename_regex,
+            resolve_dependency,
+        ),
         Subcommand::Update { repo } => protovend::update(repo),
         Subcommand::Install {} => protovend::install(),
         Subcommand::Cleanup {} => protovend::cleanup(),

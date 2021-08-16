@@ -92,6 +92,9 @@ fn test_install_override_commit_hash() {
 - branch: branch-2
   commit: thisIsAnOldHash
   url: https://github.com/Skyscanner/protovend-test-protos.git
+  proto_dir: proto
+  proto_paths:
+    - skyscanner/protovendtestprotos
 min_protovend_version: 0.0.0
 updated: 2017-08-14 17:15:13.549503",
     )

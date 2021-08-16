@@ -120,9 +120,9 @@ fn check_proto_directory_structure<P: AsRef<Path>>(
     proto_root_folder: P,
 ) -> Result<Vec<CheckResult>> {
     let description = format!(
-        "Proto folder structure is not correct; it should contain the directory {}. 
+        "Proto folder structure is not correct; it should contain the directory {}.
     If source is from another repo please ask the owners to update",
-        proto_root_folder.as_ref().display()
+        project_proto_dir.as_ref().display()
     );
 
     let result = if !project_proto_dir.as_ref().exists() {
